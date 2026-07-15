@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>AAUA Campus Map</name>
+    <description/>
+    <NetworkLink>
+      <name>AAUA Campus Map</name>
+      <Link>
+        <href><![CDATA[https://www.google.com/maps/d/u/0/kml?forcekml=1&mid=1viMoVLZt6d0hm9_isJEoagvSy4D37xc]]></href>
+      </Link>
+    </NetworkLink>
+  </Document>
+</kml>

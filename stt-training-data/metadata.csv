@@ -1,0 +1,41 @@
+audio_path,transcript,split,condition
+stt-training-data/STT NS/I am going to 30cq NS.m4a,I am going to 30cq,train,noise_suppressed
+stt-training-data/STT NS/I am going to ETF 750 NS.m4a,I am going to ETF 750,train,noise_suppressed
+stt-training-data/STT NS/I am going to ETF NS.m4a,I am going to ETF,train,noise_suppressed
+stt-training-data/STT NS/I am going to Quadrangle NS.m4a,I am going to Quadrangle,train,noise_suppressed
+stt-training-data/STT NS/I am going to ENT hall NS.m4a,I am going to ENT hall,train,noise_suppressed
+stt-training-data/STT NS/I am going to faculty of edu NS.m4a,I am going to faculty of edu,test,noise_suppressed
+stt-training-data/STT NS/I am going to intercom NS.m4a,I am going to intercom,train,noise_suppressed
+stt-training-data/STT NS/I am going to law LT NS.m4a,I am going to law LT,train,noise_suppressed
+stt-training-data/STT NS/I am going to new RC NS.m4a,I am going to new RC,train,noise_suppressed
+stt-training-data/STT NS/I am going to OBJ NS.m4a,I am going to OBJ,train,noise_suppressed
+stt-training-data/STT NS/I am going to psb lab NS .m4a,I am going to psb lab,test,noise_suppressed
+stt-training-data/STT NS/I am going to senate NS.m4a,I am going to senate,train,noise_suppressed
+stt-training-data/STT NS/I am going to senate building NS.m4a,I am going to senate building,test,noise_suppressed
+stt-training-data/STT NS/take me to AEB lab NS .m4a,take me to AEB lab,train,noise_suppressed
+stt-training-data/STT NS/take me to agric LT NS .m4a,take me to agric LT,train,noise_suppressed
+stt-training-data/STT NS/take me to faculty of computing NS .m4a,take me to faculty of computing,test,noise_suppressed
+stt-training-data/STT NS/take me to old RC NS .m4a,take me to old RC,train,noise_suppressed
+stt-training-data/STT NS/take me to RC NS .m4a,take me to RC,train,noise_suppressed
+stt-training-data/STT NS/take me to sport complex ns.m4a,take me to sport complex,train,noise_suppressed
+stt-training-data/STT NS/take me to TET650 NS .m4a,take me to TET650,test,noise_suppressed
+stt-training-data/STT Noisy/I am going to 30cq.m4a,I am going to 30cq,train,noisy
+stt-training-data/STT Noisy/I am going to ETF 750.m4a,I am going to ETF 750,test,noisy
+stt-training-data/STT Noisy/I am going to ETF.m4a,I am going to ETF,train,noisy
+stt-training-data/STT Noisy/I am going to Quadrangle .m4a,I am going to Quadrangle,train,noisy
+stt-training-data/STT Noisy/I am going to ENT hall.m4a,I am going to ENT hall,train,noisy
+stt-training-data/STT Noisy/I am going to faculty of edu.m4a,I am going to faculty of edu,train,noisy
+stt-training-data/STT Noisy/I am going to intercom.m4a,I am going to intercom,train,noisy
+stt-training-data/STT Noisy/I am going to law LT.m4a,I am going to law LT,train,noisy
+stt-training-data/STT Noisy/I am going to new RC.m4a,I am going to new RC,train,noisy
+stt-training-data/STT Noisy/I am going to OBJ.m4a,I am going to OBJ,train,noisy
+stt-training-data/STT Noisy/I am going to psb lab.m4a,I am going to psb lab,test,noisy
+stt-training-data/STT Noisy/I am going to senate .m4a,I am going to senate,train,noisy
+stt-training-data/STT Noisy/I am going to senate building .m4a,I am going to senate building,train,noisy
+stt-training-data/STT Noisy/take me to AEB lab.m4a,take me to AEB lab,train,noisy
+stt-training-data/STT Noisy/take me to agric LT.m4a,take me to agric LT,train,noisy
+stt-training-data/STT Noisy/take me to faculty of computing .m4a,take me to faculty of computing,test,noisy
+stt-training-data/STT Noisy/take me to old RC.m4a,take me to old RC,train,noisy
+stt-training-data/STT Noisy/take me to RC.m4a,take me to RC,train,noisy
+stt-training-data/STT Noisy/take me to sport complex.m4a,take me to sport complex,train,noisy
+stt-training-data/STT Noisy/take me to TET650.m4a,take me to TET650,train,noisy

@@ -1,0 +1,44 @@
+# Git
+.git/
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Dev environment
+.venv/
+.uv/
+.env
+*.env.local
+
+# Models (large — never bake into image, use volumes)
+models/
+*.pt
+*.bin
+*.gguf
+*.onnx
+
+# Tests & tooling (not needed in prod image)
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+README.md
+*.md

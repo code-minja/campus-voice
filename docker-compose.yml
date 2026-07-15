@@ -1,0 +1,89 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Campus Voice — Docker Compose
+#
+# Usage:
+#   Production:  docker compose up campus-voice
+#   Dev shell:   docker compose --profile dev up campus-voice-dev
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-common-env: &common-env
+  LOG_LEVEL: "INFO"
+  WHISPER_MODEL_SIZE: "base"        # tiny | base | small | medium | large-v3
+  WHISPER_DEVICE: "cpu"
+  WHISPER_COMPUTE_TYPE: "int8"
+  KOKORO_VOICE: "af_heart"
+  KOKORO_LANG: "en-us"
+  KOKORO_SPEED: "1.0"
+  TTS_OUTPUT_FORMAT: "wav"
+  CORS_ORIGINS: '["*"]'
+  CAMPUS_GEOFENCE_ENABLED: "true"
+  CAMPUS_CENTER_LATITUDE: "7.481843099892803"
+  CAMPUS_CENTER_LONGITUDE: "5.741945337431659"
+  CAMPUS_GEOFENCE_RADIUS_METERS: "2500"
+  ALLOW_SIMULATED_ORIGIN: "true"
+  ROUTING_PROVIDER: "mock"
+  GOOGLE_MAPS_API_KEY: ""
+  GOOGLE_ROUTES_LANGUAGE_CODE: "en-US"
+  GOOGLE_ROUTES_UNITS: "METRIC"
+
+services:
+  # ── Production ────────────────────────────────────────────────────────────
+  campus-voice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: campus-voice:latest
+    container_name: campus-voice
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *common-env
+      DEBUG: "false"
+    volumes:
+      # Persist model downloads between restarts
+      - hf-cache:/app/.cache/huggingface
+      - whisper-models:/app/models/whisper
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s   # models download on first boot
+
+  # ── Dev (hot-reload, source mounted) ─────────────────────────────────────
+  campus-voice-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: campus-voice:latest
+    container_name: campus-voice-dev
+    ports:
+      - "8001:8000"
+    environment:
+      <<: *common-env
+      DEBUG: "true"
+      LOG_LEVEL: "DEBUG"
+    volumes:
+      - ./src:/app/src:ro        # live source mount
+      - hf-cache:/app/.cache/huggingface
+      - whisper-models:/app/models/whisper
+    command:
+      - python
+      - -m
+      - uvicorn
+      - campus_voice.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/src
+    profiles:
+      - dev
+
+volumes:
+  hf-cache:         # kokoro-onnx + HuggingFace model cache
+  whisper-models:   # faster-whisper CTranslate2 model files

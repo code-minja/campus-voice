@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# uv / pip
+.venv/
+.uv/
+
+# Environment
+.env
+*.env.local
+
+# Models (large binary files — store in volume / object storage)
+models/
+*.pt
+*.bin
+*.gguf
+*.onnx
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Ruff / mypy
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
