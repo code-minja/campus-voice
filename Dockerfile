@@ -18,6 +18,10 @@ RUN pip install --no-cache-dir --retries 5 --timeout 120 -e .
 # These are ~330MB total and live at a stable GitHub release URL.
 RUN python -c "import pathlib, urllib.request; base='https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/'; files=['kokoro-v1.0.onnx','voices-v1.0.bin']; p=pathlib.Path('/app'); [urllib.request.urlretrieve(base + name, p / name) for name in files]"
 
+# Download Whisper base model at build time so it is baked into the image.
+RUN python -c "from faster_whisper.utils import download_model; download_model('base', output_dir='/app/models/whisper')"
+
+
 # Model cache dirs
 ENV HF_HOME="/app/.cache/huggingface" \
     PYTHONPATH="/app/src" \
