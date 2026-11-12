@@ -377,11 +377,17 @@ LOCATIONS: dict[int, LocationRecord] = {
     },
 }
 
-# The true central roundabout/monument loop area coordinates
+# Central roundabout/monument loop coordinates
 AAUA_CAMPUS_CENTER = {
     "latitude": 7.479234,
     "longitude": 5.748411,
 }
 
-# Constrained safely to 1.0 km to match physical campus boundaries 
-AAUA_CAMPUS_RADIUS_METERS = 1_000.0
+# Fixed fence covers every mapped campus location with a small GPS margin.
+AAUA_CAMPUS_RADIUS_METERS = 1_300.0
+AAUA_CAMPUS_BOUNDS = {
+    "north": 7.4852,
+    "south": 7.4741,
+    "east": 5.7600,
+    "west": 5.7380,
+}

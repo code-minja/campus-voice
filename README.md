@@ -74,6 +74,9 @@ uv run uvicorn campus_voice.main:app --reload --port 8000
 ```
 
 Visit **http://localhost:8000/docs** for the interactive Swagger UI.
+On the first local startup, the Kokoro ONNX model and voice files are downloaded
+to `models/kokoro/` (about 354 MB total). Set `KOKORO_MODEL_PATH` to use another
+directory. Docker continues to use the model files bundled at `/app`.
 
 ---
 
@@ -89,6 +92,9 @@ Upload audio → receive transcribed text.
 | `file` | audio file | ✅ | wav, mp3, ogg, flac, m4a (max 25 MB) |
 | `language` | string | ❌ | BCP-47 hint e.g. `en`, `yo`. Auto-detect if omitted |
 | `task` | string | ❌ | `transcribe` (default) or `translate` → English |
+
+Transcription is biased with the campus locations and their aliases, then
+known destination aliases are normalized in the returned text.
 
 **Response**:
 ```json
@@ -146,7 +152,8 @@ docker compose up campus-voice
 docker compose --profile dev up campus-voice-dev
 ```
 
-Models are persisted in named Docker volumes (`whisper-models`, `kokoro-models`) so they download only once.
+Kokoro model files are bundled into the Docker image. Whisper models and Hugging
+Face caches are persisted in named Docker volumes.
 
 On macOS, the dev profile binds your local `src/` directory into the container.
 If Docker Desktop shows a `Mounts denied` error, add the repo parent folder to
@@ -157,7 +164,8 @@ source bind mount, so it can still run without that dev sharing setup.
 ### Route Preview Test
 
 The `/v1/route` endpoint is geofenced to AAUA campus by default and supports
-simulated origins for local testing:
+device GPS origins for real navigation. Simulated origins are disabled by
+default; enable `ALLOW_SIMULATED_ORIGIN=true` in `.env` only when testing:
 
 ```bash
 curl -X POST http://localhost:8000/v1/route \
@@ -191,16 +199,19 @@ All settings are environment variables (see `.env.example`):
 | `WHISPER_MODEL_SIZE` | `base` | `tiny`→`large-v3` — bigger = more accurate |
 | `WHISPER_DEVICE` | `cpu` | `cpu` or `cuda` |
 | `WHISPER_COMPUTE_TYPE` | `int8` | `int8` (CPU), `float16` (GPU) |
+| `KOKORO_MODEL_PATH` | `models/kokoro/` | Directory for Kokoro model and voice files |
 | `KOKORO_VOICE` | `af_heart` | See voice list above |
 | `KOKORO_SPEED` | `1.0` | 0.5 – 2.0 |
 | `TTS_OUTPUT_FORMAT` | `wav` | `wav` or `mp3` |
 | `CORS_ORIGINS` | `["*"]` | Restrict in production |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` |
-| `CAMPUS_GEOFENCE_ENABLED` | `true` | Reject route origins outside campus |
-| `CAMPUS_CENTER_LATITUDE` | `7.481843099892803` | AAUA geofence center latitude |
-| `CAMPUS_CENTER_LONGITUDE` | `5.741945337431659` | AAUA geofence center longitude |
-| `CAMPUS_GEOFENCE_RADIUS_METERS` | `2500` | Allowed campus radius |
-| `ALLOW_SIMULATED_ORIGIN` | `true` | Allows `simulate_origin` in route requests |
+| `ROUTING_PROVIDER` | `google_routes` | Google Routes by default; `mock` is for explicit testing only |
+| `GOOGLE_MAPS_API_KEY` | *(None)* | Required by Google Routes API |
+| `ALLOW_SIMULATED_ORIGIN` | `false` | Rejects simulated origins unless explicitly enabled for testing |
+
+AAUA routing is always restricted to the campus bounds and a 1,300 m radius
+around the campus center. Geofence environment variables cannot disable or
+expand that boundary.
 
 ---
 
@@ -276,4 +287,4 @@ distance, duration, and encoded polyline. The API also supports step-level
 navigation instructions for turn-by-turn guidance. Google requires a Google
 Cloud project with billing enabled for Maps Platform usage.
 
-For local development, keep `ROUTING_PROVIDER=mock` until the Google key is ready.
+Google routing errors are returned instead of silently substituting mock routes.

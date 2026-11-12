@@ -35,20 +35,23 @@ class Settings(BaseSettings):
     whisper_download_root: Path = Path("/app/models/whisper")
 
     # ── Campus geofence ─────────────────────────────────────────────────────
+    # Legacy environment fields; route validation uses fixed AAUA boundary data.
     campus_geofence_enabled: bool = True
-    campus_center_latitude: float = 7.481843099892803
-    campus_center_longitude: float = 5.741945337431659
-    campus_geofence_radius_meters: float = 2500.0
-    allow_simulated_origin: bool = True
+    campus_center_latitude: float = 7.479234
+    campus_center_longitude: float = 5.748411
+    campus_geofence_radius_meters: float = 1300.0
+    allow_simulated_origin: bool = False
 
     # ── Routing provider ────────────────────────────────────────────────────
-    routing_provider: str = "mock"  # mock | google_routes
+    routing_provider: str = "google_routes"  # mock | google_routes
     google_maps_api_key: str = ""
     google_routes_language_code: str = "en-US"
     google_routes_units: str = "METRIC"
 
     # ── TTS (Kokoro) ─────────────────────────────────────────────────────────
-    kokoro_model_path: Path = Path("/app")
+    kokoro_model_path: Path = (
+        Path(__file__).resolve().parents[3] / "models" / "kokoro"
+    )
     kokoro_voice: str = "af_heart"   # default voice
     kokoro_lang: str = "en-us"
     kokoro_speed: float = Field(default=1.0, ge=0.5, le=2.0)

@@ -70,10 +70,10 @@ class GoogleRoutesProvider(RoutingProvider):
                     }
                 }
             },
-            "travelMode": "DRIVE",
+            "travelMode": "WALK",
             "computeAlternativeRoutes": False,
             "languageCode": self.language_code,
-            "units": self.units,
+            "units": self.units.upper(),
         }
 
         with httpx.Client(timeout=self.timeout_seconds) as client:

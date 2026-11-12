@@ -111,12 +111,20 @@ class DestinationSummary(BaseModel):
     coordinate: Coordinate | None = None
 
 
+class CampusBounds(BaseModel):
+    north: float
+    south: float
+    east: float
+    west: float
+
+
 class GeofenceStatus(BaseModel):
     enabled: bool
     inside: bool
     center: Coordinate
     radius_meters: float
     distance_from_center_meters: float
+    bounds: CampusBounds
 
 
 class RouteStep(BaseModel):

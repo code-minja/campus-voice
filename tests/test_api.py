@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from campus_voice.app import create_app
+from campus_voice.data.locations import LOCATIONS
 from campus_voice.services.stt_service import TranscriptionResult
 from campus_voice.services.tts_service import SynthesisResult
 
@@ -82,6 +83,8 @@ def test_locations_expose_route_conditions(client: TestClient) -> None:
     first_location = body["locations"][0]
     assert "route_conditions" in first_location
     assert isinstance(first_location["route_conditions"], list)
+    assert {location["id"] for location in body["locations"]} == set(LOCATIONS)
+    assert "AAUA Main Gate" in {location["name"] for location in body["locations"]}
 
 
 # ── STT ───────────────────────────────────────────────────────────────────────
@@ -121,6 +124,28 @@ def test_transcribe_post_processes_campus_destination(client: TestClient) -> Non
     assert body["raw_text"] == "take me to e t f 750"
     assert body["post_processed"] is True
     assert body["corrections"][0]["replacement"] == "ETF 750"
+
+
+def test_transcribe_matches_acoustic_variant_of_campus_destination(
+    client: TestClient,
+) -> None:
+    client.app.state.stt.transcribe.return_value = TranscriptionResult(
+        text="I am going to taxi Q",
+        language="en",
+        language_probability=0.99,
+        segments=[{"start": 0.0, "end": 1.0, "text": "I am going to taxi Q"}],
+    )
+
+    r = client.post(
+        "/v1/stt/transcribe",
+        files={"file": ("test.wav", _make_wav_bytes(), "audio/wav")},
+    )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["text"] == "I am going to 30CQ"
+    assert body["raw_text"] == "I am going to taxi Q"
+    assert body["post_processed"] is True
 
 
 def test_transcribe_empty_file(client: TestClient) -> None:

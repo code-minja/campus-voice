@@ -18,8 +18,11 @@ Design principles
 from __future__ import annotations
 
 import io
+import tempfile
+import urllib.request
 import wave
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -27,6 +30,15 @@ from campus_voice.core.config import Settings
 from campus_voice.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+_KOKORO_MODEL_BASE_URL = (
+    "https://github.com/thewh1teagle/kokoro-onnx/releases/download/"
+    "model-files-v1.0"
+)
+_KOKORO_MODEL_FILE_SIZES = {
+    "kokoro-v1.0.onnx": 325_532_387,
+    "voices-v1.0.bin": 28_214_398,
+}
 
 
 @dataclass
@@ -48,18 +60,18 @@ class TTSService:
 
     def load(self) -> None:
         """
-        Download (first run) and initialize the Kokoro ONNX model.
+        Download missing model files and initialize the Kokoro ONNX model.
 
-        kokoro-onnx auto-downloads model weights from HuggingFace Hub on
-        first call.  Weights are cached in ~/.cache/huggingface so
-        Docker-mount that directory to persist across container restarts.
-
-        For air-gapped deploys, set HUGGINGFACE_HUB_OFFLINE=1 and
-        pre-download via: huggingface-cli download hexgrad/Kokoro-82M
+        For offline deployments, place both model files in KOKORO_MODEL_PATH
+        before starting the application.
         """
         try:
             from kokoro_onnx import Kokoro  # type: ignore[import]
             import onnxruntime as ort
+
+            model_path, voices_path = self._ensure_model_files(
+                self._settings.kokoro_model_path
+            )
 
             # Configure session options for minimal latency on CPU
             sess_opts = ort.SessionOptions()
@@ -68,19 +80,91 @@ class TTSService:
             sess_opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
             sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-            model_path = str(self._settings.kokoro_model_path / "kokoro-v1.0.onnx")
-            voices_path = str(self._settings.kokoro_model_path / "voices-v1.0.bin")
-
             providers = ["CPUExecutionProvider"]
             if "CUDAExecutionProvider" in ort.get_available_providers():
                 providers.insert(0, "CUDAExecutionProvider")
 
-            session = ort.InferenceSession(model_path, sess_opts, providers=providers)
-            self._kokoro = Kokoro.from_session(session, voices_path)
+            session = ort.InferenceSession(
+                str(model_path), sess_opts, providers=providers
+            )
+            self._kokoro = Kokoro.from_session(session, str(voices_path))
             logger.info("tts_service.loaded_with_session", backend="kokoro-onnx", providers=providers)
         except Exception as exc:
             logger.error("tts_service.load_failed", error=str(exc))
             raise
+
+    @staticmethod
+    def _ensure_model_files(model_dir: Path) -> tuple[Path, Path]:
+        model_dir.mkdir(parents=True, exist_ok=True)
+        paths = (
+            model_dir / "kokoro-v1.0.onnx",
+            model_dir / "voices-v1.0.bin",
+        )
+
+        for path in paths:
+            expected_size = _KOKORO_MODEL_FILE_SIZES[path.name]
+            if path.is_file() and path.stat().st_size == expected_size:
+                continue
+
+            if path.exists():
+                logger.warning(
+                    "tts_service.model_file_size_mismatch",
+                    file=path.name,
+                    expected_bytes=expected_size,
+                    actual_bytes=path.stat().st_size,
+                )
+
+            url = f"{_KOKORO_MODEL_BASE_URL}/{path.name}"
+            logger.info(
+                "tts_service.model_download_started",
+                file=path.name,
+                destination=str(path),
+            )
+            temporary_path: Path | None = None
+            try:
+                downloaded_bytes = 0
+                next_progress_log = 32 * 1024 * 1024
+                with tempfile.NamedTemporaryFile(
+                    dir=model_dir,
+                    prefix=f".{path.name}.",
+                    suffix=".part",
+                    delete=False,
+                ) as temporary_file:
+                    temporary_path = Path(temporary_file.name)
+                    with urllib.request.urlopen(url, timeout=60) as response:
+                        while chunk := response.read(1024 * 1024):
+                            temporary_file.write(chunk)
+                            downloaded_bytes += len(chunk)
+                            if downloaded_bytes >= next_progress_log:
+                                logger.info(
+                                    "tts_service.model_download_progress",
+                                    file=path.name,
+                                    downloaded_bytes=downloaded_bytes,
+                                    expected_bytes=expected_size,
+                                )
+                                next_progress_log = (
+                                    downloaded_bytes // (32 * 1024 * 1024) + 1
+                                ) * (32 * 1024 * 1024)
+
+                if downloaded_bytes != expected_size:
+                    raise OSError(
+                        f"Expected {expected_size} bytes, received {downloaded_bytes}"
+                    )
+                temporary_path.replace(path)
+                logger.info(
+                    "tts_service.model_download_complete",
+                    file=path.name,
+                    size_bytes=path.stat().st_size,
+                )
+            except Exception as exc:
+                if temporary_path is not None:
+                    temporary_path.unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"Could not download Kokoro model file {path.name} from {url}. "
+                    f"Check network access or place the file in {model_dir}. {exc}"
+                ) from exc
+
+        return paths
 
     def unload(self) -> None:
         self._kokoro = None

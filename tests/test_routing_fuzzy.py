@@ -9,7 +9,10 @@ from campus_voice.services.routing.service import RoutingService
 
 
 def _service() -> RoutingService:
-    return RoutingService(provider=MockRoutingProvider(), settings=Settings())
+    return RoutingService(
+        provider=MockRoutingProvider(),
+        settings=Settings(allow_simulated_origin=True),
+    )
 
 
 def test_matches_spoken_etf_750_variants() -> None:

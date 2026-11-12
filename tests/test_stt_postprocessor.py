@@ -21,6 +21,29 @@ def test_corrects_common_asr_variant_for_rc() -> None:
     assert result.post_processed is True
 
 
+def test_corrects_spoken_cq_variant_and_location_alias() -> None:
+    result = STTPostProcessor().process("walk me to taxi Q")
+
+    assert result.text == "walk me to 30CQ"
+    assert result.post_processed is True
+
+
+def test_normalizes_alias_from_location_data() -> None:
+    result = STTPostProcessor().process("go to admin block")
+
+    assert result.text == "go to Senate Building"
+    assert result.post_processed is True
+
+
+def test_removes_repeated_destination_from_transcription() -> None:
+    result = STTPostProcessor().process(
+        "I'm going to ETF 750, etf seven fifty,"
+    )
+
+    assert result.text == "I am going to ETF 750"
+    assert result.post_processed is True
+
+
 def test_leaves_unknown_text_unchanged() -> None:
     result = STTPostProcessor().process("hello from campus voice")
 

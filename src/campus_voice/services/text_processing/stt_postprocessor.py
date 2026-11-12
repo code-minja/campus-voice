@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
+from campus_voice.data.locations import LOCATIONS
+
 
 @dataclass(frozen=True, slots=True)
 class Correction:
@@ -55,7 +57,18 @@ _DESTINATIONS: tuple[DestinationAlias, ...] = (
     DestinationAlias("OBJ", ("obj", "o b j", "o.b.j")),
     DestinationAlias("Senate", ("senate",)),
     DestinationAlias("Senate Building", ("senate building",)),
-    DestinationAlias("30CQ", ("30cq", "30 cq", "thirty cq", "thirty c q")),
+    DestinationAlias(
+        "30CQ",
+        (
+            "30cq",
+            "30 cq",
+            "thirty cq",
+            "thirty c q",
+            "thirty see cue",
+            "taxi q",
+            "take the cq",
+        ),
+    ),
     DestinationAlias("Faculty of Education", ("faculty of edu", "faculty of education")),
     DestinationAlias("PSB Lab", ("psb lab", "p s b lab", "ps b lab")),
     DestinationAlias("Intercom", ("intercom", "inter com")),
@@ -70,6 +83,7 @@ _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^(?P<prefix>go\s+to)\s+(?P<destination>.+)$", re.I),
     re.compile(r"^(?P<prefix>bring\s+me\s+to)\s+(?P<destination>.+)$", re.I),
     re.compile(r"^(?P<prefix>head\s+to)\s+(?P<destination>.+)$", re.I),
+    re.compile(r"^(?P<prefix>walk\s+me\s+to)\s+(?P<destination>.+)$", re.I),
 )
 
 _PUNCTUATION_RE = re.compile(r"[^\w\s]")
@@ -81,6 +95,14 @@ class STTPostProcessor:
 
     def __init__(self, min_destination_score: float = 0.82) -> None:
         self._min_destination_score = min_destination_score
+        location_destinations = tuple(
+            DestinationAlias(
+                canonical=location["name"],
+                aliases=tuple(dict.fromkeys((location["name"], *location["aliases"]))),
+            )
+            for location in LOCATIONS.values()
+        )
+        self._destinations = (*_DESTINATIONS, *location_destinations)
 
     def process(self, text: str) -> PostProcessResult:
         raw_text = text.strip()
@@ -169,9 +191,20 @@ class STTPostProcessor:
         if not normalized_text:
             return None
 
+        for destination in self._destinations:
+            normalized_aliases = {
+                _normalize_for_match(alias) for alias in destination.aliases
+            }
+            for alias in destination.aliases:
+                normalized_alias = _normalize_for_match(alias)
+                if normalized_text.startswith(f"{normalized_alias} "):
+                    repeated_alias = normalized_text[len(normalized_alias) + 1 :]
+                    if repeated_alias in normalized_aliases:
+                        return destination.canonical, 0.9
+
         best_canonical = ""
         best_score = 0.0
-        for destination in _DESTINATIONS:
+        for destination in self._destinations:
             for alias in destination.aliases:
                 score = _similarity(normalized_text, _normalize_for_match(alias))
                 if score > best_score:

@@ -17,18 +17,27 @@ Design principles
 
 from __future__ import annotations
 
-import csv
 import io
-from pathlib import Path
 from dataclasses import dataclass, field
 
 from faster_whisper import WhisperModel
 
 from campus_voice.core.config import Settings
-from campus_voice.data.locations import LOCATIONS
 from campus_voice.core.logging import get_logger
+from campus_voice.data.locations import LOCATIONS
 
 logger = get_logger(__name__)
+
+_PRIORITY_HOTWORDS = (
+    "ETF 750",
+    "ETF",
+    "30CQ",
+    "thirty C Q",
+    "TETFund 650",
+    "Old RC",
+    "New RC",
+    "Senate Building",
+)
 
 
 @dataclass
@@ -97,8 +106,6 @@ class STTService:
 
         # Pass a BytesIO — faster-whisper 1.1.x accepts BinaryIO directly
         audio_buf = io.BytesIO(audio_bytes)
-        initial_prompt = self._build_initial_prompt(task=task, language=language)
-
         segments_iter, info = self._model.transcribe(
             audio_buf,
             language=language,
@@ -106,7 +113,7 @@ class STTService:
             beam_size=5,
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 500},
-            initial_prompt=initial_prompt,
+            hotwords=self._build_hotwords() if task == "transcribe" else None,
             condition_on_previous_text=False,
         )
 
@@ -129,55 +136,13 @@ class STTService:
             segments=segments,
         )
 
-    def _build_initial_prompt(self, *, task: str, language: str | None) -> str | None:
-        """
-        Bias Whisper toward the campus vocabulary and command styles we expect.
-
-        This is not true model fine-tuning, but with a small custom dataset it is
-        the most practical accuracy boost we can apply during decoding.
-        """
-        if task != "transcribe":
-            return None
-
-        prompts: list[str] = [
-            "Campus Voice navigation commands.",
-            "Examples: take me to ETF 750, I am going to ETF 750, go to Senate Building, navigate to Old RC.",
-        ]
-
-        training_data_examples = self._load_training_transcripts()
-        if training_data_examples:
-            prompts.append(
-                "Training examples: " + ", ".join(training_data_examples[:12])
-            )
-
-        destinations: list[str] = []
-        for location in LOCATIONS.values():
-            destinations.append(location["name"])
-            destinations.extend(location["aliases"])
-
-        # De-duplicate while preserving order so the prompt stays concise.
-        unique_destinations = list(dict.fromkeys(destinations))
-        if unique_destinations:
-            prompts.append("Known campus destinations: " + ", ".join(unique_destinations))
-
-        prompt = " ".join(prompts).strip()
-        return prompt or None
-
     @staticmethod
-    def _load_training_transcripts() -> list[str]:
-        metadata_path = Path(__file__).resolve().parents[3] / "stt-training-data" / "metadata.csv"
-        if not metadata_path.exists():
-            return []
+    def _build_hotwords() -> str | None:
+        """Bias Whisper toward canonical campus names and their spoken aliases."""
+        hotwords: list[str] = list(_PRIORITY_HOTWORDS)
+        for location in LOCATIONS.values():
+            hotwords.append(location["name"])
+            hotwords.extend(location["aliases"])
 
-        transcripts: list[str] = []
-        try:
-            with metadata_path.open("r", encoding="utf-8", newline="") as handle:
-                reader = csv.DictReader(handle)
-                for row in reader:
-                    transcript = (row.get("transcript") or "").strip()
-                    if transcript:
-                        transcripts.append(transcript)
-        except Exception:
-            return []
-
-        return list(dict.fromkeys(transcripts))
+        unique_hotwords = list(dict.fromkeys(hotwords))
+        return ", ".join(unique_hotwords) or None

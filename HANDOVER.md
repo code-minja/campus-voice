@@ -16,7 +16,7 @@ graph TD
         Mobile["React Native Expo App (campus-voice)"]
     end
 
-    subgraph API ["Backend API Layer (python-api/campus-voice)"]
+    subgraph API ["Backend API Layer (campus-voice)"]
         FastAPI["FastAPI Web Framework"]
         Lifespan["Lifespan Service Manager"]
     end
@@ -42,7 +42,7 @@ graph TD
 ### Components Summary
 
 1. **`campus-voice` (React Native Expo App)**: The primary end-user mobile application. It captures user audio inputs, queries the backend for transcription and routing, snaps the user to steps on the active map path, and handles hands-free voice feedback.
-2. **`python-api/campus-voice` (FastAPI Backend)**: The server orchestrator. It handles deep learning models (STT/TTS) and geofenced Dijkstra/Google mapping queries.
+2. **`campus-voice` (FastAPI Backend)**: The server orchestrator. It handles deep learning models (STT/TTS) and geofenced Dijkstra/Google mapping queries.
 
 ---
 
@@ -60,31 +60,27 @@ The backend is built in **Python 3.11** using the **FastAPI** web framework. Dep
 - **Model**: `Kokoro` 82M ONNX weight model.
 - **Benefits**: High-fidelity speech generation at a fraction of the size of conventional models, with no cloud API cost.
 - **Available Voices**: `af_heart` (default female), `af_bella`, `am_adam` (default male), `am_michael`, `bf_emma`, `bm_george`.
+- **Model Files**: Downloaded automatically on first local startup to `models/kokoro/`; Docker uses the bundled files under `/app`.
 - **Implementation**: Wrapper code inside [tts_service.py](src/campus_voice/services/tts_service.py) parses text and outputs standard `audio/wav` or `audio/mpeg` data streams.
 
 ### 2.3 Routing Service
 The routing system is coordinated by [service.py](src/campus_voice/services/routing/service.py) and is geofenced to the AAUA campus. 
 
-It handles routing through three tiers:
-
-1. **Curated Walkway Routes**:
-   - For specific critical routes (e.g., *Faculty of Computing ➔ University Library*, *ETF 750 ➔ University Library*), the service returns pre-authored coordinates and highly descriptive walking guides to ensure 100% path accuracy on walkways.
-2. **Mock Walkway Graph (Dijkstra)**:
-   - For other campus routes, [mock_provider.py](src/campus_voice/services/routing/mock_provider.py) maps the coordinates, snaps the origin to the nearest graph node, runs Dijkstra's algorithm ([dijkstra.py](src/campus_voice/services/routing/dijkstra.py)) over a custom AAUA walkway network ([campus_graph.py](src/campus_voice/services/routing/campus_graph.py)), and computes relative bearings to emit navigation steps like:
-     * *"Turn right towards Faculty of Science for 45 meters"*
-3. **Google Routes API Provider**:
-   - When `ROUTING_PROVIDER` is set to `google_routes`, [google_routes_provider.py](src/campus_voice/services/routing/google_routes_provider.py) queries Google's walking directions matrix. If Google API calls fail, the service automatically falls back to Dijkstra's mock walkway graph.
+Routes use [google_routes_provider.py](src/campus_voice/services/routing/google_routes_provider.py)
+by default for Google's walking directions. API failures are surfaced to the
+client; routes are not replaced with curated or mock paths. The Dijkstra mock
+provider remains available only when explicitly selected for testing.
 
 ### 2.4 AAUA Campus Geofencing
-- **Center Coordinate**: Latitude `7.479234`, Longitude `5.748411` (Senate Building area).
-- **Physical Radius Limit**: `1,000` meters (1.0 km) matching the AAUA boundary.
-- **Functionality**: Rejects coordinate routing origins that fall outside this geofence unless `CAMPUS_GEOFENCE_ENABLED=false` or simulated origins are supplied.
+- **Center Coordinate**: Latitude `7.479234`, Longitude `5.748411` (central roundabout/monument loop).
+- **Fence**: Fixed 1,300-meter radius intersected with the bounds containing every cataloged AAUA location.
+- **Functionality**: Rejects outside origins and any generated route that leaves the campus fence; environment settings and simulated origins cannot bypass the boundary.
 
 ---
 
 ## 3. Mobile Client (Expo App)
 
-The mobile client is built using **Expo SDK 54**, **React Native**, and **TypeScript**.
+The mobile client is built using **Expo SDK 58**, **React Native 0.88**, and **TypeScript**.
 
 ### 3.1 Key Modules & Logic
 - **Snapping & Distance Engine**: Monitors live location coordinates via `expo-location` and calculates step offsets/bearings using local Levenshtein matching and Jaccard tokens in [campusLocations.ts](../campus-voice/src/app/services/campusLocations.ts).
@@ -105,39 +101,42 @@ The mobile client is built using **Expo SDK 54**, **React Native**, and **TypeSc
 
 ## 4. Developer Workflows & Setup
 
-To make local onboarding simple, the mobile client includes a unified dev orchestration script: [start-all.js](../campus-voice/scripts/start-all.js).
+To make local onboarding simple, the mobile client includes a unified dev orchestration script: [start-all.js](../campus-voice-app/scripts/start-all.js).
 
 ### Running Locally
 To launch both the backend and frontend at once:
-1. Navigate to the mobile app directory: `cd campus-voice`
-2. Run the developer startup command:
+1. In the backend directory, create and sync the Python virtual environment: `uv sync`
+2. Navigate to the mobile app directory: `cd ../campus-voice-app`
+3. Ensure **Node.js 22.13+, 24.3+, or 26+** is installed (required by Expo SDK 58).
+4. Run the developer startup command:
    ```bash
+   npm install
    npm run dev
    ```
+   In Windows PowerShell, use `npm.cmd install` and `npm.cmd run dev` if the execution policy blocks the `npm` PowerShell shim.
 
 **What the script does under the hood:**
 1. **Detects the local IPv4 address** on your host network (e.g. `192.168.1.15`).
 2. **Injects the IP address** dynamically into the mobile `.env` file (`EXPO_PUBLIC_API_BASE_URL=http://<IP>:<PORT>`) so the mobile app running on a physical phone or simulator knows how to connect to the backend server.
 3. **Checks if Docker is running**:
    - If Docker is running: Launches the backend in dev mode via Docker Compose (`docker compose --profile dev up campus-voice-dev` binding local files for hot-reload on port `8001`).
-   - If Docker is not running: Automatically falls back to launching the local Python virtualenv backend (`.venv/bin/uvicorn` on port `8000`).
+   - If Docker is not running: Automatically falls back to launching Uvicorn through the local virtualenv Python (`.venv/Scripts/python.exe` on Windows or `.venv/bin/python` on macOS/Linux) on port `8000`.
 4. **Starts the Metro Bundler** for the Expo project.
 
 ---
 
 ## 5. Configuration Matrices
 
-### Backend Configuration (`python-api/campus-voice/.env`)
+### Backend Configuration (`campus-voice/.env`)
 | Variable | Default | Description |
 |---|---|---|
-| `ROUTING_PROVIDER` | `mock` | `mock` (Dijkstra) or `google_routes` |
-| `GOOGLE_MAPS_API_KEY` | *(None)* | Required if using `google_routes` |
+| `ROUTING_PROVIDER` | `google_routes` | Google Routes by default; `mock` is for explicit testing |
+| `GOOGLE_MAPS_API_KEY` | *(None)* | Required for Google Routes |
 | `WHISPER_MODEL_SIZE` | `base` | Model size for faster-whisper (`tiny` to `large-v3`) |
 | `WHISPER_DEVICE` | `cpu` | Hardware logic: `cpu` or `cuda` |
-| `CAMPUS_GEOFENCE_ENABLED` | `true` | Enables AAUA geofence boundary checks |
-| `ALLOW_SIMULATED_ORIGIN` | `true` | Allows coordinate override for developer testing |
+| `ALLOW_SIMULATED_ORIGIN` | `false` | Simulated origins are disabled by default |
 
-### Mobile App Configuration (`campus-voice/.env`)
+### Mobile App Configuration (`campus-voice-app/.env`)
 | Variable | Description |
 |---|---|
 | `EXPO_PUBLIC_API_BASE_URL` | Base API endpoint (automatically set by `start-all.js`) |

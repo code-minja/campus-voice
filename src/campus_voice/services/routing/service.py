@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 from campus_voice.core.config import Settings, get_settings
-from campus_voice.data.locations import LOCATIONS, LocationRecord
+from campus_voice.data.locations import (
+    AAUA_CAMPUS_BOUNDS,
+    AAUA_CAMPUS_CENTER,
+    AAUA_CAMPUS_RADIUS_METERS,
+    LOCATIONS,
+    LocationRecord,
+)
 from campus_voice.models.schemas import (
     Coordinate,
     DestinationSummary,
@@ -55,28 +61,22 @@ class RoutingService:
             raise OriginOutsideCampusError(
                 "Starting point is outside the AAUA campus geofence"
             )
+        if not self._is_inside_campus(destination_coordinate):
+            raise DestinationNotFoundError(
+                "Destination is outside the AAUA campus geofence"
+            )
 
-        # Check if we have a pre-authored, 100% accurate curated route
-        result = self._get_curated_route(origin, destination, destination_coordinate)
-
-        if not result:
-            try:
-                result = self.provider.build_route(
-                    origin=origin,
-                    destination=destination,
-                    destination_coordinate=destination_coordinate,
-                )
-            except Exception as exc:
-                if not isinstance(self.provider, MockRoutingProvider):
-                    fallback_provider = MockRoutingProvider()
-                    result = fallback_provider.build_route(
-                        origin=origin,
-                        destination=destination,
-                        destination_coordinate=destination_coordinate,
-                    )
-                else:
-                    raise exc
+        result = self.provider.build_route(
+            origin=origin,
+            destination=destination,
+            destination_coordinate=destination_coordinate,
+        )
         steps = result.steps
+        route_points = [*(result.route_preview or []), *(step.waypoint for step in steps)]
+        if any(not self._is_inside_campus(point) for point in route_points):
+            raise OriginOutsideCampusError(
+                "Calculated route leaves the AAUA campus geofence"
+            )
         total_distance = round(sum(step.distance_meters for step in steps), 1)
         route_preview = result.route_preview or [origin, *(step.waypoint for step in steps)]
 
@@ -229,20 +229,40 @@ class RoutingService:
 
         return None
 
-    def _build_geofence_status(self, origin: Coordinate) -> GeofenceStatus:
+    @staticmethod
+    def _build_geofence_status(origin: Coordinate) -> GeofenceStatus:
         center = Coordinate(
-            latitude=self.settings.campus_center_latitude,
-            longitude=self.settings.campus_center_longitude,
+            latitude=AAUA_CAMPUS_CENTER["latitude"],
+            longitude=AAUA_CAMPUS_CENTER["longitude"],
         )
         distance_from_center = round(distance_meters(origin, center), 1)
-        radius = self.settings.campus_geofence_radius_meters
+        radius = AAUA_CAMPUS_RADIUS_METERS
         return GeofenceStatus(
-            enabled=self.settings.campus_geofence_enabled,
-            inside=(not self.settings.campus_geofence_enabled)
-            or distance_from_center <= radius,
+            enabled=True,
+            inside=RoutingService._is_inside_campus(origin),
             center=center,
             radius_meters=radius,
             distance_from_center_meters=distance_from_center,
+            bounds=AAUA_CAMPUS_BOUNDS,
+        )
+
+    @staticmethod
+    def _is_inside_campus(point: Coordinate) -> bool:
+        inside_bounds = (
+            AAUA_CAMPUS_BOUNDS["south"]
+            <= point.latitude
+            <= AAUA_CAMPUS_BOUNDS["north"]
+            and AAUA_CAMPUS_BOUNDS["west"]
+            <= point.longitude
+            <= AAUA_CAMPUS_BOUNDS["east"]
+        )
+        center = Coordinate(
+            latitude=AAUA_CAMPUS_CENTER["latitude"],
+            longitude=AAUA_CAMPUS_CENTER["longitude"],
+        )
+        return (
+            inside_bounds
+            and distance_meters(point, center) <= AAUA_CAMPUS_RADIUS_METERS
         )
 
     def _get_destination(self, payload: RouteRequest) -> LocationRecord:
@@ -294,11 +314,7 @@ class RoutingService:
 
 
 def build_default_routing_service() -> RoutingService:
-    """
-    Build the default service with mock provider.
-
-    Replace `MockRoutingProvider()` with `GoogleRoutingProvider(...)` later.
-    """
+    """Build the service with the configured provider (Google Routes by default)."""
     settings = get_settings()
     provider = _build_provider(settings)
     return RoutingService(provider=provider, settings=settings)
@@ -312,7 +328,10 @@ def _build_provider(settings: Settings) -> RoutingProvider:
             units=settings.google_routes_units,
         )
 
-    return MockRoutingProvider()
+    if settings.routing_provider == "mock":
+        return MockRoutingProvider()
+
+    raise ValueError(f"Unsupported routing provider: {settings.routing_provider}")
 
 
 def _normalize_name(name: str) -> str:
