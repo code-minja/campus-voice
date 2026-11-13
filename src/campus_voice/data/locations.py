@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from campus_voice.data.campus_map import load_campus_map_points
+
 
 class RouteConditionRecord(TypedDict):
     """Route-context metadata for a campus location."""
@@ -48,7 +50,18 @@ LOCATIONS: dict[int, LocationRecord] = {
         "name": "ETF 750",
         "latitude": 7.4816017,
         "longitude": 5.7420794,
-        "aliases": ('etf750', 'etf 750', 'e t f 750', 'etf seven fifty', 'seven fifty'),
+        "aliases": (
+            "etf750",
+            "etf 750",
+            "e t f 750",
+            "etf seven fifty",
+            "seven fifty",
+            "etf",
+            "e t f",
+            "itf",
+            "itf 750",
+            "itf750",
+        ),
         "route_conditions": (
             _condition(
                 "busy_shuttle_road",
@@ -236,7 +249,7 @@ LOCATIONS: dict[int, LocationRecord] = {
         "name": "AAUA OBJ MULTIPURPOSE HALL",
         "latitude": 7.479601,
         "longitude": 5.7394032,
-        "aliases": ('aaua obj multipurpose hall',),
+        "aliases": ("aaua obj multipurpose hall", "obj", "o b j", "o.b.j"),
         "route_conditions": (
         ),
     },
@@ -326,7 +339,15 @@ LOCATIONS: dict[int, LocationRecord] = {
         "name": "30CQ Lecture theater",
         "latitude": 7.482844,
         "longitude": 5.7500099,
-        "aliases": ('30cq lecture theater',),
+        "aliases": (
+            "30cq lecture theater",
+            "30 cq",
+            "thirty cq",
+            "thirty c q",
+            "thirty see cue",
+            "taxi q",
+            "take the cq",
+        ),
         "route_conditions": (
         ),
     },
@@ -335,7 +356,13 @@ LOCATIONS: dict[int, LocationRecord] = {
         "name": "TETFUND 650",
         "latitude": 7.4830397,
         "longitude": 5.7527876,
-        "aliases": ('tetfund 650',),
+        "aliases": (
+            "tetfund 650",
+            "tet 650",
+            "tet650",
+            "t e t 650",
+            "tet six fifty",
+        ),
         "route_conditions": (
         ),
     },
@@ -376,6 +403,47 @@ LOCATIONS: dict[int, LocationRecord] = {
         ),
     },
 }
+
+_CURATED_LOCATIONS = LOCATIONS
+_LOCATIONS_BY_COORDINATE = {
+    (location["latitude"], location["longitude"]): location
+    for location in _CURATED_LOCATIONS.values()
+}
+
+
+def _locations_from_campus_map() -> dict[int, LocationRecord]:
+    mapped_locations: dict[int, LocationRecord] = {}
+    next_id = max(_CURATED_LOCATIONS, default=0) + 1
+
+    for point in load_campus_map_points():
+        curated = _LOCATIONS_BY_COORDINATE.get((point.latitude, point.longitude))
+        if curated is None:
+            location: LocationRecord = {
+                "id": next_id,
+                "name": point.name,
+                "latitude": point.latitude,
+                "longitude": point.longitude,
+                "aliases": (point.name,),
+                "route_conditions": (),
+            }
+            next_id += 1
+        else:
+            aliases = tuple(dict.fromkeys((*curated["aliases"], point.name)))
+            location = {
+                **curated,
+                "latitude": point.latitude,
+                "longitude": point.longitude,
+                "aliases": aliases,
+            }
+
+        if location["id"] in mapped_locations:
+            raise ValueError(f"Duplicate campus location id {location['id']} in map data")
+        mapped_locations[location["id"]] = location
+
+    return mapped_locations
+
+
+LOCATIONS = _locations_from_campus_map()
 
 # Central roundabout/monument loop coordinates
 AAUA_CAMPUS_CENTER = {

@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status, Request, BackgroundTasks
-
 import re
 from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+
+from campus_voice.core.logging import get_logger
 from campus_voice.models.schemas import RouteRequest, RouteResponse, RouteStep
 from campus_voice.services.routing.service import (
     DestinationNotFoundError,
@@ -17,6 +19,7 @@ from campus_voice.services.routing.service import (
 
 router = APIRouter(tags=["Navigation"])
 routing_service = build_default_routing_service()
+logger = get_logger(__name__)
 
 
 def clean_accessibility_instruction(instruction: str) -> str:
@@ -40,24 +43,40 @@ def clean_accessibility_instruction(instruction: str) -> str:
     return text
 
 
+def clean_tts_pronunciation(text: str) -> str:
+    text = re.sub(r"\bAAUA\b", "A A U A", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bETF\s*750\b", "E T F seven fifty", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bETF\b", "E T F", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bOBJ\b", "O B J", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bLT\s*A\b", "L T A", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bLT\b", "L T", text, flags=re.IGNORECASE)
+    return re.sub(r"\bRC\b", "R C", text, flags=re.IGNORECASE)
+
+
 def prefetch_route_steps_tts(tts_service: Any, steps: list[RouteStep], destination_name: str) -> None:
     """Background task to pre-synthesize and disk-cache TTS for all route events to remove speech latency."""
-    phrases = []
-    # 1. Cleaned step instructions
-    for step in steps:
-        phrases.append(clean_accessibility_instruction(step.instruction))
-    # 2. General route flow prompts
-    phrases.append(f"Route preview ready for {destination_name}. Say yes to begin navigation, or cancel to go back.")
-    phrases.append(f"Starting navigation to {destination_name}.")
-    # 3. Arrival and rerouting prompts
-    phrases.append(f"You have arrived at your destination, {destination_name}")
-    phrases.append(f"Rerouting... Recalculating path to {destination_name}")
+    phrases = [
+        clean_tts_pronunciation(clean_accessibility_instruction(step.instruction))
+        for step in steps
+    ]
+    phrases.extend(
+        clean_tts_pronunciation(phrase)
+        for phrase in (
+            f"Starting voice-only navigation to {destination_name}.",
+            f"You have arrived at your destination, {destination_name}.",
+            f"You are off route. Recalculating a path to {destination_name}.",
+        )
+    )
 
     for phrase in phrases:
         try:
-            tts_service.synthesize(phrase)
-        except Exception:
-            pass
+            tts_service.synthesize(phrase, output_format="wav")
+        except Exception as exc:
+            logger.warning(
+                "navigation.tts_prefetch_failed",
+                error=str(exc),
+                text=phrase[:80],
+            )
 
 
 @router.post(
@@ -74,12 +93,11 @@ def route(payload: RouteRequest, request: Request, background_tasks: BackgroundT
         # Trigger background prefetch for TTS audio files
         tts_service = getattr(request.app.state, "tts", None)
         if tts_service:
-            dest_name = payload.destination_name or response.destination.name
             background_tasks.add_task(
                 prefetch_route_steps_tts,
                 tts_service,
                 response.steps,
-                dest_name
+                response.destination.name,
             )
 
         return response

@@ -13,6 +13,7 @@ from campus_voice.services.routing.google_routes_provider import (
 )
 from campus_voice.services.routing.mock_provider import MockRoutingProvider
 from campus_voice.services.routing.service import (
+    DestinationNotFoundError,
     OriginOutsideCampusError,
     RoutingService,
     _build_provider,
@@ -54,6 +55,16 @@ def test_rejects_origin_outside_aaua_geofence() -> None:
             RouteRequest(
                 origin=Coordinate(latitude=6.5248, longitude=3.3798),
                 destination_name="ETF750",
+            )
+        )
+
+
+def test_only_map_file_destinations_are_routable() -> None:
+    with pytest.raises(DestinationNotFoundError):
+        _service().build_route(
+            RouteRequest(
+                origin=Coordinate(latitude=7.4818, longitude=5.7419),
+                destination_name="AAUA Main Gate",
             )
         )
 

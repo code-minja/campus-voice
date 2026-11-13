@@ -68,6 +68,10 @@ services:
       LOG_LEVEL: "DEBUG"
     volumes:
       - ./src:/app/src:ro        # live source mount
+      - type: bind
+        source: ./AAUA Campus Map.kmz
+        target: /app/AAUA Campus Map.kmz
+        read_only: true
       - hf-cache:/app/.cache/huggingface
       - whisper-models:/app/models/whisper
     command:

@@ -34,8 +34,6 @@ _PRIORITY_HOTWORDS = (
     "30CQ",
     "thirty C Q",
     "TETFund 650",
-    "Old RC",
-    "New RC",
     "Senate Building",
 )
 

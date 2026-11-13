@@ -35,46 +35,6 @@ class DestinationAlias:
     aliases: tuple[str, ...]
 
 
-_DESTINATIONS: tuple[DestinationAlias, ...] = (
-    DestinationAlias("AEB Lab", ("aeb lab", "a e b lab", "abe lab", "ab lab")),
-    DestinationAlias("Agric LT", ("agric lt", "agric l t", "agriculture lt")),
-    DestinationAlias("ETF", ("etf", "e t f", "e.t.f", "itf")),
-    DestinationAlias(
-        "ETF 750",
-        ("etf 750", "e t f 750", "etf seven fifty", "itf 750", "itf750", "e t f seven fifty"),
-    ),
-    DestinationAlias("RC", ("rc", "r c", "are see", "arcy")),
-    DestinationAlias("Old RC", ("old rc", "old r c", "old are see", "old arcy")),
-    DestinationAlias("New RC", ("new rc", "new r c", "new are see", "new arcy")),
-    DestinationAlias("ENT Hall", ("ent hall", "e n t hall", "entrepreneurship hall")),
-    DestinationAlias("TET 650", ("tet650", "tet 650", "t e t 650", "tet six fifty")),
-    DestinationAlias(
-        "Faculty of Computing",
-        ("faculty of computing", "computing faculty", "faculty computing"),
-    ),
-    DestinationAlias("Law LT", ("law lt", "law l t", "law lecture theatre")),
-    DestinationAlias("Quadrangle", ("quadrangle", "quad angle", "quad")),
-    DestinationAlias("OBJ", ("obj", "o b j", "o.b.j")),
-    DestinationAlias("Senate", ("senate",)),
-    DestinationAlias("Senate Building", ("senate building",)),
-    DestinationAlias(
-        "30CQ",
-        (
-            "30cq",
-            "30 cq",
-            "thirty cq",
-            "thirty c q",
-            "thirty see cue",
-            "taxi q",
-            "take the cq",
-        ),
-    ),
-    DestinationAlias("Faculty of Education", ("faculty of edu", "faculty of education")),
-    DestinationAlias("PSB Lab", ("psb lab", "p s b lab", "ps b lab")),
-    DestinationAlias("Intercom", ("intercom", "inter com")),
-    DestinationAlias("Sport Complex", ("sport complex", "sports complex")),
-)
-
 _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^(?P<prefix>take\s+me\s+to)\s+(?P<destination>.+)$", re.I),
     re.compile(r"^(?P<prefix>i\s+am\s+going\s+to)\s+(?P<destination>.+)$", re.I),
@@ -102,7 +62,7 @@ class STTPostProcessor:
             )
             for location in LOCATIONS.values()
         )
-        self._destinations = (*_DESTINATIONS, *location_destinations)
+        self._destinations = location_destinations
 
     def process(self, text: str) -> PostProcessResult:
         raw_text = text.strip()

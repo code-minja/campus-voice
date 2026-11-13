@@ -48,6 +48,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/campus_voice"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"AAUA Campus Map.kmz" = "campus_voice/data/AAUA Campus Map.kmz"
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"

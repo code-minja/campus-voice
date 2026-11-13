@@ -10,6 +10,7 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml ./
 COPY src/ src/
+COPY ["AAUA Campus Map.kmz", "/app/AAUA Campus Map.kmz"]
 
 # Install directly into system Python — no venv, no path issues
 RUN pip install --no-cache-dir --retries 5 --timeout 120 -e .

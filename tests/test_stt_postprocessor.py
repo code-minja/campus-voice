@@ -14,17 +14,17 @@ def test_corrects_spelled_out_acronym_destination() -> None:
     assert result.corrections[0].replacement == "ETF 750"
 
 
-def test_corrects_common_asr_variant_for_rc() -> None:
+def test_does_not_match_destination_missing_from_campus_map() -> None:
     result = STTPostProcessor().process("I am going to old are see")
 
-    assert result.text == "I am going to Old RC"
-    assert result.post_processed is True
+    assert result.text == "I am going to old are see"
+    assert result.post_processed is False
 
 
 def test_corrects_spoken_cq_variant_and_location_alias() -> None:
     result = STTPostProcessor().process("walk me to taxi Q")
 
-    assert result.text == "walk me to 30CQ"
+    assert result.text == "walk me to 30CQ Lecture theater"
     assert result.post_processed is True
 
 

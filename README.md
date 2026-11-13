@@ -213,6 +213,10 @@ AAUA routing is always restricted to the campus bounds and a 1,300 m radius
 around the campus center. Geofence environment variables cannot disable or
 expand that boundary.
 
+Campus locations and route destinations are sourced from the unique Point
+placemarks in `AAUA Campus Map.kmz`. The map's coordinates are used directly;
+locations not mapped in that file are not listed or routable.
+
 ---
 
 ## Tests

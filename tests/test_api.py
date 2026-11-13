@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from campus_voice.app import create_app
+from campus_voice.data.campus_map import load_campus_map_points
 from campus_voice.data.locations import LOCATIONS
 from campus_voice.services.stt_service import TranscriptionResult
 from campus_voice.services.tts_service import SynthesisResult
@@ -84,7 +85,15 @@ def test_locations_expose_route_conditions(client: TestClient) -> None:
     assert "route_conditions" in first_location
     assert isinstance(first_location["route_conditions"], list)
     assert {location["id"] for location in body["locations"]} == set(LOCATIONS)
-    assert "AAUA Main Gate" in {location["name"] for location in body["locations"]}
+    assert len(body["locations"]) == len(load_campus_map_points())
+    assert {
+        (location["latitude"], location["longitude"])
+        for location in body["locations"]
+    } == {
+        (point.latitude, point.longitude)
+        for point in load_campus_map_points()
+    }
+    assert "AAUA Main Gate" not in {location["name"] for location in body["locations"]}
 
 
 # ── STT ───────────────────────────────────────────────────────────────────────
@@ -143,7 +152,7 @@ def test_transcribe_matches_acoustic_variant_of_campus_destination(
 
     assert r.status_code == 200
     body = r.json()
-    assert body["text"] == "I am going to 30CQ"
+    assert body["text"] == "I am going to 30CQ Lecture theater"
     assert body["raw_text"] == "I am going to taxi Q"
     assert body["post_processed"] is True
 
