@@ -29,7 +29,7 @@ ENV HF_HOME="/app/.cache/huggingface" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN mkdir -p /app/.cache/huggingface /app/models/whisper
+RUN mkdir -p /app/.cache/huggingface /app/models/whisper /app/tts_cache
 
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser

@@ -70,7 +70,7 @@ def prefetch_route_steps_tts(tts_service: Any, steps: list[RouteStep], destinati
 
     for phrase in phrases:
         try:
-            tts_service.synthesize(phrase, output_format="wav")
+            tts_service.synthesize(phrase, background=True)
         except Exception as exc:
             logger.warning(
                 "navigation.tts_prefetch_failed",

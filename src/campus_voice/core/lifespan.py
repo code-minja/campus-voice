@@ -43,19 +43,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Start startup prefetch in the background
     import threading
     def run_startup_prefetch(tts):
+        from campus_voice.api.v1.routes.navigation import clean_tts_pronunciation
         from campus_voice.data.locations import LOCATIONS
+
         logger.info("tts.startup_prefetch.start")
-        phrases = []
+        phrases = [
+            "Hi! I'm CampusVoice. Where would you like to go?",
+            "Where would you like to go?",
+            "Please repeat your destination.",
+            "Please say yes to begin navigation, or cancel to go back.",
+        ]
         for loc in LOCATIONS.values():
             name = loc["name"]
-            phrases.append(f"Route preview ready for {name}. Say yes to begin navigation, or cancel to go back.")
-            phrases.append(f"Starting navigation to {name}.")
-            phrases.append(f"You have arrived at your destination, {name}")
-            phrases.append(f"Rerouting... Recalculating path to {name}")
-            
+            phrases += [
+                f"I heard {name}. Say yes to continue or no to try again.",
+                f"Great. Opening route preview for {name}.",
+                f"Please say yes to confirm {name}, or no to try again.",
+                f"Route preview ready for {name}.",
+                f"Starting voice-only navigation to {name}.",
+                f"You have arrived at your destination, {name}.",
+                f"You are off route. Recalculating a path to {name}.",
+            ]
+        phrases = [clean_tts_pronunciation(p) for p in phrases]
+
         for phrase in phrases:
             try:
-                tts.synthesize(phrase)
+                tts.synthesize(phrase, background=True)
             except Exception:
                 pass
         logger.info("tts.startup_prefetch.complete", count=len(phrases))

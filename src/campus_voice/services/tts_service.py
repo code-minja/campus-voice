@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import io
 import tempfile
+import threading
+import time
 import urllib.request
 import wave
 from dataclasses import dataclass
@@ -55,6 +57,8 @@ class TTSService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._kokoro = None   # type: ignore[assignment]
+        self._live = 0
+        self._live_lock = threading.Lock()
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -179,10 +183,41 @@ class TTSService:
         voice: str | None = None,
         speed: float | None = None,
         output_format: str | None = None,
+        background: bool = False,
     ) -> SynthesisResult:
         """
-        Synthesize text to speech audio bytes with disk caching.
+        Synthesize text to speech, yielding to live requests when prefetching.
+
+        Live calls increment a counter; background prefetch work waits until
+        it reaches zero so it never competes with a user's STT/TTS call.
         """
+        if background:
+            while self._live:
+                time.sleep(0.05)
+        else:
+            with self._live_lock:
+                self._live += 1
+        try:
+            return self._synthesize(
+                text,
+                voice=voice,
+                speed=speed,
+                output_format=output_format,
+            )
+        finally:
+            if not background:
+                with self._live_lock:
+                    self._live -= 1
+
+    def _synthesize(
+        self,
+        text: str,
+        *,
+        voice: str | None = None,
+        speed: float | None = None,
+        output_format: str | None = None,
+    ) -> SynthesisResult:
+        """Synthesize text to speech audio bytes with disk caching."""
         import hashlib
         import json
 

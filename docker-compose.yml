@@ -15,9 +15,9 @@ x-common-env: &common-env
   KOKORO_LANG: "en-us"
   KOKORO_SPEED: "1.0"
   KOKORO_MODEL_PATH: "/app"
-  TTS_OUTPUT_FORMAT: "wav"
+  TTS_OUTPUT_FORMAT: "mp3"
   CORS_ORIGINS: '["*"]'
-  CAMPUS_GEOFENCE_ENABLED: "true"
+  CAMPUS_GEOFENCE_ENABLED: "false"
   CAMPUS_CENTER_LATITUDE: "7.481843099892803"
   CAMPUS_CENTER_LONGITUDE: "5.741945337431659"
   CAMPUS_GEOFENCE_RADIUS_METERS: "2500"
@@ -44,6 +44,7 @@ services:
       # Persist model downloads between restarts
       - hf-cache:/app/.cache/huggingface
       - whisper-models:/app/models/whisper
+      - tts-cache:/app/tts_cache
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",
@@ -74,6 +75,7 @@ services:
         read_only: true
       - hf-cache:/app/.cache/huggingface
       - whisper-models:/app/models/whisper
+      - tts-cache:/app/tts_cache
     command:
       - python
       - -m
@@ -92,3 +94,4 @@ services:
 volumes:
   hf-cache:         # kokoro-onnx + HuggingFace model cache
   whisper-models:   # faster-whisper CTranslate2 model files
+  tts-cache:        # synthesized MP3 audio — survives container redeploys
