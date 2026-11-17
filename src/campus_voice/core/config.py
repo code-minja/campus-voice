@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     whisper_model_size: str = "base"  # tiny | base | small | medium | large-v3
     whisper_device: str = "cpu"       # cpu | cuda
     whisper_compute_type: str = "int8"  # int8 | float16 | float32
+    whisper_language: str | None = "en"  # commands are English — skip auto-detect
+    whisper_beam_size: int = 1          # greedy decoding; beam 5 is costly on CPU
     whisper_download_root: Path = Path("/app/models/whisper")
 
     # ── Campus geofence ─────────────────────────────────────────────────────

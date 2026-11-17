@@ -24,17 +24,20 @@ from faster_whisper import WhisperModel
 
 from campus_voice.core.config import Settings
 from campus_voice.core.logging import get_logger
-from campus_voice.data.locations import LOCATIONS
 
 logger = get_logger(__name__)
 
-_PRIORITY_HOTWORDS = (
-    "ETF 750",
-    "ETF",
-    "30CQ",
-    "thirty C Q",
-    "TETFund 650",
-    "Senate Building",
+# Curated, compact hotword list. faster-whisper prefills these on every call
+# and silently truncates beyond max_length // 2 - 1 tokens, so keep only
+# acronyms / hard-to-hear aliases and stay under ~600 characters.
+_HOTWORDS = (
+    "ETF", "E T F", "ETF 750",
+    "30CQ", "thirty C Q",
+    "TET 650", "TETFund 650",
+    "OBJ", "O B J",
+    "LT", "L T", "L T A",
+    "RC", "R C",
+    "AAUA", "A A U A",
 )
 
 
@@ -52,6 +55,7 @@ class STTService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._model: WhisperModel | None = None
+        self._hotwords: str | None = None
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -63,11 +67,15 @@ class STTService:
             compute_type=s.whisper_compute_type,
             download_root=str(s.whisper_download_root),
         )
+        self._hotwords = ", ".join(_HOTWORDS) or None
         logger.info(
             "stt_service.loaded",
             model=s.whisper_model_size,
             device=s.whisper_device,
             compute_type=s.whisper_compute_type,
+            language=s.whisper_language,
+            beam_size=s.whisper_beam_size,
+            hotword_chars=len(self._hotwords or ""),
         )
 
     def unload(self) -> None:
@@ -95,7 +103,7 @@ class STTService:
         audio_bytes : bytes
             Raw audio file content (any format av/FFmpeg can decode).
         language : str | None
-            BCP-47 language code hint (e.g. "en", "yo").  None → auto-detect.
+            BCP-47 language code hint (e.g. "en", "yo").  None → settings.whisper_language ("en").
         task : str
             "transcribe" (default) or "translate" → English output.
         """
@@ -106,12 +114,12 @@ class STTService:
         audio_buf = io.BytesIO(audio_bytes)
         segments_iter, info = self._model.transcribe(
             audio_buf,
-            language=language,
+            language=language or self._settings.whisper_language,
             task=task,
-            beam_size=5,
+            beam_size=self._settings.whisper_beam_size,
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 500},
-            hotwords=self._build_hotwords() if task == "transcribe" else None,
+            hotwords=self._hotwords if task == "transcribe" else None,
             condition_on_previous_text=False,
         )
 
@@ -134,13 +142,3 @@ class STTService:
             segments=segments,
         )
 
-    @staticmethod
-    def _build_hotwords() -> str | None:
-        """Bias Whisper toward canonical campus names and their spoken aliases."""
-        hotwords: list[str] = list(_PRIORITY_HOTWORDS)
-        for location in LOCATIONS.values():
-            hotwords.append(location["name"])
-            hotwords.extend(location["aliases"])
-
-        unique_hotwords = list(dict.fromkeys(hotwords))
-        return ", ".join(unique_hotwords) or None
