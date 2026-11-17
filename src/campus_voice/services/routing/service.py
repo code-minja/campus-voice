@@ -56,12 +56,13 @@ class RoutingService:
             coordinate=destination_coordinate,
         )
 
-        geofence = self._build_geofence_status(origin)
+        geofence_enabled = self.settings.campus_geofence_enabled
+        geofence = self._build_geofence_status(origin, enabled=geofence_enabled)
         if geofence.enabled and not geofence.inside:
             raise OriginOutsideCampusError(
                 "Starting point is outside the AAUA campus geofence"
             )
-        if not self._is_inside_campus(destination_coordinate):
+        if geofence.enabled and not self._is_inside_campus(destination_coordinate):
             raise DestinationNotFoundError(
                 "Destination is outside the AAUA campus geofence"
             )
@@ -73,7 +74,9 @@ class RoutingService:
         )
         steps = result.steps
         route_points = [*(result.route_preview or []), *(step.waypoint for step in steps)]
-        if any(not self._is_inside_campus(point) for point in route_points):
+        if geofence.enabled and any(
+            not self._is_inside_campus(point) for point in route_points
+        ):
             raise OriginOutsideCampusError(
                 "Calculated route leaves the AAUA campus geofence"
             )
@@ -230,16 +233,19 @@ class RoutingService:
         return None
 
     @staticmethod
-    def _build_geofence_status(origin: Coordinate) -> GeofenceStatus:
+    def _build_geofence_status(
+        origin: Coordinate, *, enabled: bool = True
+    ) -> GeofenceStatus:
         center = Coordinate(
             latitude=AAUA_CAMPUS_CENTER["latitude"],
             longitude=AAUA_CAMPUS_CENTER["longitude"],
         )
         distance_from_center = round(distance_meters(origin, center), 1)
         radius = AAUA_CAMPUS_RADIUS_METERS
+        inside = RoutingService._is_inside_campus(origin) if enabled else True
         return GeofenceStatus(
-            enabled=True,
-            inside=RoutingService._is_inside_campus(origin),
+            enabled=enabled,
+            inside=inside,
             center=center,
             radius_meters=radius,
             distance_from_center_meters=distance_from_center,
